@@ -1,0 +1,39 @@
+name: Plugin metadata and skill validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Validate JSON manifests
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('.grok-plugin/plugin.json', 'utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('.mcp.json', 'utf8'))"
+      - name: Validate skill front matter
+        run: |
+          for file in skills/filtra-reputacao/SKILL.md .agents/skills/mcp-tool-contract-review/SKILL.md .agents/skills/privacy-safe-reputation-analysis/SKILL.md; do
+            test -s "$file"
+            grep -q '^name:' "$file"
+            grep -q '^description:' "$file"
+          done
+      - name: Check repository hygiene
+        run: |
+          test ! -d node_modules
+          ! grep -R -nE 'sk_live_[A-Za-z0-9]+|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY' --exclude-dir=.git .
